@@ -4,7 +4,7 @@
 #'  builds a neural network and reports on the accuracy
 #'  of the built model.
 #'
-#' @param totalData A data set that contains scaled data
+#' @param data.set A data set that contains scaled data
 #'  and a vector of results as a column in the data frame.
 #'
 #' @return A neural network model built from \code{totalData}
@@ -13,10 +13,14 @@
 #' @export
 
 
-gen_nn <- function(data.set, nnArgs, logs = FALSE, fold.info = 10) {
+gen_nn <- function(data.set, className = "label", logs = FALSE, fold.info = list(num = 10, per = 7), ...) {
+
+  # Initialise additional user input
+  
+  # Calculate folds
   
   # Check what labels are available, and how many
-  data.set$res %<>% as.character
+  data.set %<>% `[[`(className) %>% as.character
   unlabel <- data.set
   unlabel$res <- NULL
   
@@ -25,8 +29,8 @@ gen_nn <- function(data.set, nnArgs, logs = FALSE, fold.info = 10) {
   features <- unlabel[ , 1:totCols] %>% names
   
   # Convert malicious and normal to 0 or 1 and bind to numerical scaled data
-  newLabels <- data.set$res %>% unique %>% sort
-  trafficType <- data.set$res %>% as.factor %>% as.numeric %>% `-`(1)
+  newLabels <- data.set %>% `[[`(className) %>% unique %>% sort
+  trafficType <- data.set %>% `[[`(className) %>% as.factor %>% as.numeric %>% `-`(1)
   trafficType %<>% nnet::class.ind()
   dSet <- cbind(trafficType, unlabel)
   
@@ -36,8 +40,10 @@ gen_nn <- function(data.set, nnArgs, logs = FALSE, fold.info = 10) {
   
   # Concat strings, create the formula by adding up for symbolic formula
   f <- paste0(
-    newLabels %>% paste(collapse = ' + '), ' ~',
-    paste(features, collapse = ' + ')) %>%
+    newLabels %>% paste(collapse = " + "),
+    " ~",
+    paste(features, collapse = " + ")
+    ) %>%
     stats::as.formula()
   
   # Calculate number of neurons
@@ -52,7 +58,7 @@ gen_nn <- function(data.set, nnArgs, logs = FALSE, fold.info = 10) {
   foldGroupLen <- FOLD_DATA$NUM - FOLD_DATA$PER
   
   # Initialise list of vectors to save
-  totalStats <- footballstats::init_conf_stats()
+  # totalStats <- init_conf_stats()
   
   # Start logging
   if (logs) cat(" ## NN CV :")
