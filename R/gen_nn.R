@@ -13,43 +13,69 @@
 #' @export
 
 
-gen_nn <- function(data.set, className = "label", logs = FALSE, fold.info = list(num = 10, per = 7), ...) {
+gen_nn <- function(data.set, cName = "res", logs = FALSE, fold.info = c(10, 7), ...) {
 
   # Initialise additional user input
-  
+  # ...
+
   # Calculate folds
+  fold.info %<>% as.list
+  if (fold.info %>% length %>% `!=`(2)) {
+    stop(" Fold info must contain 2 numeric elements.")
+  } else {
+    names(fold.info) <- c("num", "per")
+  }
   
-  # Check what labels are available, and how many
-  data.set %<>% `[[`(className) %>% as.character
-  unlabel <- data.set
-  unlabel$res <- NULL
+  # Make sure condition is met for fold numbers
+  if (fold.info$num %>% `<`(fold.info$per)) {
+    stop(" Total folds must be more than the subset amount.")
+  }
   
-  # Convert to integers
-  totCols <- ncol(unlabel)
-  features <- unlabel[ , 1:totCols] %>% names
+  # Actually generate the logical vectors within each fold
+  FOLD_DATA <- data.set %>% 
+    `[[`(cName) %>%
+    create_folds(
+     folds = fold.info$num,
+     percentage = fold.info$per
+    )
   
-  # Convert malicious and normal to 0 or 1 and bind to numerical scaled data
-  newLabels <- data.set %>% `[[`(className) %>% unique %>% sort
-  trafficType <- data.set %>% `[[`(className) %>% as.factor %>% as.numeric %>% `-`(1)
-  trafficType %<>% nnet::class.ind()
-  dSet <- cbind(trafficType, unlabel)
+  # Check what labels are available
+  myClasses <- data.set %>% 
+    `[[`(cName) %>% 
+    as.character %>% 
+    as.factor
   
-  # Relabel the data set with the required classes
-  labColSpace <- newLabels %>% length %>% `+`(1)
-  names(dSet) <- newLabels %>% c(dSet[labColSpace:ncol(dSet)] %>% names)
+  # Remove the class column (to rebuild later)
+  data.set[[cName]] <- NULL
   
+  # Get all feature names
+  features <- data.set %>% 
+    names
+  
+  # Get label names
+  labelNames <- myClasses %>% 
+    levels
+  
+  # Convert classes to binary
+  class.type <- myClasses %>%
+    nnet::class.ind()
+
+  # Bind the classes and features together
+  d.set <- class.type %>% 
+    cbind(data.set)
+
   # Concat strings, create the formula by adding up for symbolic formula
   f <- paste0(
-    newLabels %>% paste(collapse = " + "),
+    labelNames %>% paste(collapse = " + "),
     " ~",
     paste(features, collapse = " + ")
-    ) %>%
+  ) %>%
     stats::as.formula()
   
   # Calculate number of neurons
   neurons <- features %>%
     length %>%
-    `+`(newLabels %>% length) %>%
+    `+`(labelNames %>% length) %>%
     `/`(2) %>%
     round %>%
     `+`(1)
@@ -57,41 +83,31 @@ gen_nn <- function(data.set, className = "label", logs = FALSE, fold.info = list
   # How many folds per test set
   foldGroupLen <- FOLD_DATA$NUM - FOLD_DATA$PER
   
-  # Initialise list of vectors to save
-  # totalStats <- init_conf_stats()
-  
   # Start logging
   if (logs) cat(" ## NN CV :")
+  
+  # Initialise results vector
+  results <- c()
   
   # Build the neural network
   for (i in 1:(FOLD_DATA$PER + 1)) {
     
     # Print out to see the progress
     if (logs) cat("", i, "/")
-    if (i == (FOLD_DATA$PER + 1) && LOGS) cat("\n")
+    if (i == (FOLD_DATA$PER + 1) && logs) cat("\n")
     
     # Which indexes of the folds to include
-    filterTest <- seq(
+    filterInds <- seq(
       from = i,
       by = 1,
       length.out = foldGroupLen
     )
     
-    # Loop through all the folds
-    foldInd <- 1:FOLD_DATA$NUM
-    
     # Set up train and test data
-    train.data <- dSet[
-      FOLD_DATA$FOLDS[-filterTest] %>% purrr::flatten_int(), ]
-    test.data <- dSet[
-      FOLD_DATA$FOLDS[filterTest] %>% purrr::flatten_int(), ]
+    train.data <- d.set[FOLD_DATA$FOLDS[-filterInds] %>% purrr::flatten_int(), ]
+    test.data <- d.set[FOLD_DATA$FOLDS[filterInds] %>% purrr::flatten_int(), ]
     
-    new.odds <- if (odds.results %>% is.null %>% `!`()) {
-      odds.results[
-        FOLD_DATA$FOLDS[filterTest] %>% purrr::flatten_int(), ]
-    } else {
-      data.frame()
-    }
+    foldint <- FOLD_DATA$FOLDS[filterInds] %>% purrr::flatten_int()
     
     # Build the neural network with split data
     if (logs) cat(' ## Building neural network ## \n')
@@ -108,7 +124,7 @@ gen_nn <- function(data.set, className = "label", logs = FALSE, fold.info = list
           act.fct = "logistic",
           linear.output = FALSE,
           lifesign = if (logs) "full" else "none",
-          stepmax = 1000000 # Old = 10000000
+          stepmax = 1000000
         )
       }, 
       warning = function(w) return(NULL)
@@ -120,22 +136,37 @@ gen_nn <- function(data.set, className = "label", logs = FALSE, fold.info = list
     # Compute Predictions off Test Set
     predictions <- neuralnet::compute(
       x = nn,
-      covariate = test.data[(newLabels %>% length + 1):ncol(test.data)]
+      covariate = test.data[features]
     )
     
     # Create vectors to measure accuracy
     realVec <- predVec <- 0 %>% rep(test.data %>% nrow)
     tot <- 0
-    for (i in 1:(newLabels %>% length)) {
-      current <- test.data[[newLabels[i]]]
-      realVec[current %>% `==`(1) %>% which] <- newLabels[i]
+    for (j in 1:(labelNames %>% length)) {
+      current <- test.data[[labelNames[j]]]
+      realVec[current %>% `==`(1) %>% which] <- labelNames[j]
     }
     
     # Check the max values per row for the predictions
     netRes <- predictions$net.result
-    for (j in 1:(netRes %>% nrow)) predVec[j] <- newLabels[netRes[j, ] %>% which.max]
+    for (j in 1:(netRes %>% nrow)) predVec[j] <- labelNames[netRes[j, ] %>% which.max]
+    
+    results %<>% c(
+      list(
+        actual = realVec,
+        predicted = predVec,
+        foldint = foldint
+      ) 
+      %>% list
+    )
+    
   }
   
   # Return neural network plus results
-  return(list(neural = nn))
+  return(
+    list(
+      neural = nn,
+      results = results
+    )
+  )
 }
