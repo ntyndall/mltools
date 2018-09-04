@@ -14,14 +14,14 @@
 
 
 gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10, 7)) {
-
+  
   # Initialise additional user input
   addInput <- list(...)
   NN <- if (addInput$NN %>% is.null %>% `!`()) addInput$NN else list()
   iNames <- if (NN %>% length %>% `>`(0)) NN %>% names else c()
   if ("THRESH" %in% iNames %>% `!`()) NN$THRESH <- 0.5
   if ("REP" %in% iNames %>% `!`()) NN$REP <- 1
-
+  
   # Calculate folds
   fold.info %<>% as.list
   if (fold.info %>% length %>% `!=`(2)) {
@@ -38,9 +38,9 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
   # Actually generate the logical vectors within each fold
   FOLD_DATA <- data.set %>% 
     `[[`(cName) %>%
-    create_folds(
-     folds = fold.info$num,
-     percentage = fold.info$per
+    mltools::create_folds(
+      folds = fold.info$num,
+      percentage = fold.info$per
     )
   
   # Check what labels are available
@@ -63,11 +63,11 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
   # Convert classes to binary
   class.type <- myClasses %>%
     nnet::class.ind()
-
+  
   # Bind the classes and features together
   d.set <- class.type %>% 
     cbind(data.set)
-
+  
   # Concat strings, create the formula by adding up for symbolic formula
   f <- paste0(
     labelNames %>% paste(collapse = " + "),
@@ -92,6 +92,8 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
   
   # Initialise results vector
   results <- c()
+  totalStats <- list()
+  bestResult <- 0
   
   # Build the neural network
   for (i in 1:(FOLD_DATA$PER + 1)) {
@@ -155,6 +157,27 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
     netRes <- predictions$net.result
     for (j in 1:(netRes %>% nrow)) predVec[j] <- labelNames[netRes[j, ] %>% which.max]
     
+    # Need to calculate the best score
+    confResults <- realVec %>% 
+      mltools::confusion_stats(
+        Predicted.score = predVec
+      )
+    
+    # Append list results on
+    totalStats$totAcc %<>% c(confResults[1])
+    totalStats$totAccL %<>% c(confResults[2])
+    totalStats$totAccU %<>% c(confResults[3])
+    totalStats$totD %<>% c(confResults[4])
+    totalStats$totL %<>% c(confResults[5])
+    totalStats$totW %<>% c(confResults[6])
+    
+    # Store the best result
+    if (confResults[1] > bestResult) {
+      bestModel <- nn
+      bestResult <- confResults[1]
+    }
+    
+    # Append the results on
     results %<>% c(
       list(
         actual = realVec,
@@ -163,14 +186,14 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
       ) 
       %>% list
     )
-    
   }
   
   # Return neural network plus results
   return(
     list(
-      neural = nn,
-      results = results
+      model = bestModel,
+      results = results,
+      totalStats = totalStats
     )
   )
 }
