@@ -13,10 +13,14 @@
 #' @export
 
 
-gen_nn <- function(data.set, cName = "res", logs = FALSE, fold.info = c(10, 7), ...) {
+gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10, 7)) {
 
   # Initialise additional user input
-  # ...
+  addInput <- list(...)
+  NN <- if (addInput$NN %>% is.null %>% `!`()) addInput$NN else list()
+  iNames <- if (NN %>% length %>% `>`(0)) NN %>% names else c()
+  if ("THRESH" %in% iNames %>% `!`()) NN$THRESH <- 0.5
+  if ("REP" %in% iNames %>% `!`()) NN$REP <- 1
 
   # Calculate folds
   fold.info %<>% as.list
