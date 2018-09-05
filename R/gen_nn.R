@@ -19,28 +19,14 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
   addInput <- list(...)
   NN <- if (addInput$NN %>% is.null %>% `!`()) addInput$NN else list()
   iNames <- if (NN %>% length %>% `>`(0)) NN %>% names else c()
-  if ("THRESH" %in% iNames %>% `!`()) NN$THRESH <- 0.5
+  if ("THRESH" %in% iNames %>% `!`()) NN$THRESH <- 0.3
   if ("REP" %in% iNames %>% `!`()) NN$REP <- 1
   
   # Calculate folds
-  fold.info %<>% as.list
-  if (fold.info %>% length %>% `!=`(2)) {
-    stop(" Fold info must contain 2 numeric elements.")
-  } else {
-    names(fold.info) <- c("num", "per")
-  }
-  
-  # Make sure condition is met for fold numbers
-  if (fold.info$num %>% `<`(fold.info$per)) {
-    stop(" Total folds must be more than the subset amount.")
-  }
-  
-  # Actually generate the logical vectors within each fold
-  FOLD_DATA <- data.set %>% 
-    `[[`(cName) %>%
-    mltools::create_folds(
-      folds = fold.info$num,
-      percentage = fold.info$per
+  FOLD_DATA <- data.set %>%
+    mltools::check_folds(
+      cName = cName,
+      fold.info = fold.info
     )
   
   # Check what labels are available
@@ -90,7 +76,7 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
   # Start logging
   if (logs) cat(" ## NN CV :")
   
-  # Initialise results vector
+  # Initialise results vectors
   results <- c()
   totalStats <- list()
   bestResult <- 0
