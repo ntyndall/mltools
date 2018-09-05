@@ -4,7 +4,7 @@
 \alias{gen_nn}
 \title{Generate Artifical Neural Network}
 \usage{
-gen_nn(data.set, cName = "res", logs = FALSE, fold.info = c(10, 7), ...)
+gen_nn(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10, 7))
 }
 \arguments{
 \item{data.set}{A data set that contains scaled data
