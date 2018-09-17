@@ -14,5 +14,6 @@ Imports:
     magrittr,
     purrr,
     neuralnet,
-    nnet
+    nnet,
+    caret
 RoxygenNote: 6.0.1
