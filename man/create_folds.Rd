@@ -4,5 +4,5 @@
 \alias{create_folds}
 \title{Create Folds}
 \usage{
-create_folds(vec, folds, percentage)
+create_folds(vec, folds, percentage, proportion = TRUE)
 }
