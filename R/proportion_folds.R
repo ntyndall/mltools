@@ -20,7 +20,7 @@ proportion_folds <- function(vec, folds) {
   intCounts <- classCounts %/% folds
 
   myCounts <- lapply(
-    X = 1:3,
+    X = 1:(cNames %>% length),
     FUN = function(x) {
       c(intCounts[x] %>% rep(folds - remainders[x]), intCounts[x] %>% `+`(1) %>% rep(remainders[x]))
     }
@@ -32,7 +32,7 @@ proportion_folds <- function(vec, folds) {
   )
 
   names(cTypes) <- cNames
-
+  
   allFolds <- c()
 
   for (i in 1:folds) {
@@ -44,7 +44,7 @@ proportion_folds <- function(vec, folds) {
     allIndexes <- c()
 
     # Loop over each type
-    for (j in 1:3) {
+    for (j in 1:(cNames %>% length)) {
       # Sample it
       indexes <- cTypes[[j]] %>% sample(size = singleCounts[j])
 

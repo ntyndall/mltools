@@ -78,7 +78,6 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
   
   # Initialise results vectors
   results <- c()
-  totalStats <- list()
   bestResult <- 0
   
   # Build the neural network
@@ -115,7 +114,7 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
           threshold = NN$THRESH,
           act.fct = "logistic",
           linear.output = FALSE,
-          lifesign = if (logs) "full" else "none",
+          lifesign = if (logs) "minimal" else "none",
           stepmax = 1000000
         )
       }, 
@@ -149,18 +148,19 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
         Predicted.score = predVec
       )
     
-    # Append list results on
-    totalStats$totAcc %<>% c(confResults[1])
-    totalStats$totAccL %<>% c(confResults[2])
-    totalStats$totAccU %<>% c(confResults[3])
-    totalStats$totD %<>% c(confResults[4])
-    totalStats$totL %<>% c(confResults[5])
-    totalStats$totW %<>% c(confResults[6])
-    
     # Store the best result
-    if (confResults[1] > bestResult) {
+    if (confResults$totalStats$totAcc > bestResult) {
       bestModel <- nn
-      bestResult <- confResults[1]
+      bestcm <- confResults$cm
+      bestResult <- confResults$totalStats$totAcc
+    }
+    
+    # Keep appending stats to totalStats
+    if (i == 1) {
+      totalStats <- confResults$totalStats
+    } else {
+      totalStats %<>% 
+        mapply(FUN = c, confResults$totalStats, SIMPLIFY = F)
     }
     
     # Append the results on
@@ -179,7 +179,8 @@ gen_nn <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10,
     list(
       model = bestModel,
       results = results,
-      totalStats = totalStats
+      totalStats = totalStats,
+      CM = bestcm
     )
   )
 }

@@ -9,10 +9,11 @@ gen_xgb <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10
   addInput <- list(...)
   XGB <- if (addInput$XGB %>% is.null %>% `!`()) addInput$XGB else list()
   iNames <- if (XGB %>% length %>% `>`(0)) XGB %>% names else c()
-  if ("DEPTH" %in% iNames %>% `!`()) XGB$DEPTH <- 0.5
+  if ("DEPTH" %in% iNames %>% `!`()) XGB$DEPTH <- 1
   if ("ETA" %in% iNames %>% `!`()) XGB$ETA <- 0.2
   if ("GAMMA" %in% iNames %>% `!`()) XGB$GAMMA <- 1
   if ("ROUNDS" %in% iNames %>% `!`()) XGB$ROUNDS <- 20000
+  if ("BOUNDARY" %in% iNames %>% `!`()) XGB$BOUNDARY <- 4
   
   # Calculate folds
   FOLD_DATA <- data.set %>%
@@ -42,10 +43,9 @@ gen_xgb <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10
     `-`(1)
   
   # Convert new results to integer values
-  boundLen <- 4
   new.results %<>% 
     mltools::scaled_to_discrete(
-      boundLen = boundLen
+      boundLen = XGB$BOUNDARY
     )
   
   # How many folds per test set
@@ -88,13 +88,13 @@ gen_xgb <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10
     # Create sparse matrix of training data
     sparse.train <- train.data %>%
       mltools::create_sparse(
-        boundLen = boundLen
+        boundLen = XGB$BOUNDARY
       )
     
     # Create sparse test matrix
     sparse.test <- test.data %>%
       mltools::create_sparse(
-        boundLen = boundLen
+        boundLen = XGB$BOUNDARY
       )
     
     # Build xgboost model
@@ -131,8 +131,9 @@ gen_xgb <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10
     totalStats$totW %<>% c(confResults[6])
     
     # Store the best result
-    if (confResults[1] > bestAcc) {
-      bestAcc <- confResults[1]
+    if (confResults$totalStats$totAcc > bestAcc) {
+      bestAcc <- confResults$totalStats$totAcc
+      bestCM <- confResults
       bestXGB <- xgb
     }
     
@@ -155,7 +156,8 @@ gen_xgb <- function(data.set, ..., cName = "res", logs = FALSE, fold.info = c(10
     list(
       model = bestXGB,
       results = results,
-      totalStats = totalStats
+      totalStats = totalStats,
+      CM = bestCM
     )
   )
 }
