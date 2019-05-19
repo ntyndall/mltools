@@ -4,5 +4,5 @@
 \alias{confusion_stats}
 \title{Confusion Stats}
 \usage{
-confusion_stats(Actual.score, Predicted.score)
+confusion_stats(Actual.score, Predicted.score, positiveC = "W")
 }
